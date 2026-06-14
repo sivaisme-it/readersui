@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>READERS — EPUB Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Russo+One&family=Share+Tech+Mono&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="readers.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<div class="corner-deco tl">READERS::SYS</div>
+<div class="corner-deco tr">EPUB_ENGINE_v2</div>
+<div class="loading-bar" id="loadingBar"></div>
+<div class="toast" id="toast"></div>
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebars()"></div>
+<div class="app">
+  <header class="topbar">
+    <button class="menu-toggle" id="menuToggleLeft" onclick="toggleSidebar('left')">☰</button>
+    <div class="logo-small">READERS</div>
+    <div class="sep"></div>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">⚡ LOAD EPUB</button>
+    <input type="file" id="fileInput" accept=".epub">
+    <div class="topbar-info" id="topbarInfo"><span>NO FILE LOADED</span> — DROP AN .EPUB OR CLICK LOAD</div>
+    <div class="topbar-right">
+      <button class="font-ctrl" onclick="changeFontSize(-1)">A−</button>
+      <button class="font-ctrl" onclick="changeFontSize(1)">A+</button>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">☀ LIGHT</button>
+      <button class="menu-toggle" id="menuToggleRight" onclick="toggleSidebar('right')">⚙</button>
+    </div>
+  </header>
+  <aside class="sidebar-left">
+    <div class="sidebar-header"><h3>◈ Table of Contents</h3></div>
+    <div class="book-cover" id="bookCover"><div class="no-cover">READ<br>ERS</div></div>
+    <div class="book-meta" id="bookMeta" style="display:none">
+      <div class="title" id="metaTitle">—</div>
+      <div class="author" id="metaAuthor">—</div>
+    </div>
+    <ul class="toc-list" id="tocList">
+      <li class="toc-item" style="opacity:0.3;pointer-events:none">No chapters loaded</li>
+    </ul>
+  </aside>
+  <main class="reader-wrap">
+    <div class="reader-area" id="readerArea">
+      <div class="drop-zone">
+        <div class="drop-icon">📖</div>
+        <h2>READERS</h2>
+        <p>Drop an .epub file here or click <strong style="color:var(--yellow)">LOAD EPUB</strong> above</p>
+        <div class="hint">▼ DRAG &amp; DROP .EPUB ▼</div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <span style="color:var(--red);font-size:0.6rem">▶</span>
+      <div class="progress-line" id="progressLine" onclick="seekTo(event)">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <span class="page-info" id="pageInfo">0%</span>
+      <button class="sticker-btn" onclick="spawnStickerPair()" title="Send Sticker">🐱</button>
+      <button class="mobile-settings-btn" onclick="toggleSidebar('right')" title="Settings">⚙</button>
+    </div>
+  </main>
+  <aside class="sidebar-right">
+    <div class="right-section">
+      <h4>◈ Reading Stats</h4>
+      <div class="stat-mini"><span class="v" id="statPct">0%</span><span class="l">Complete</span></div>
+      <div class="stat-mini"><span class="v" id="statWpm">—</span><span class="l">Words</span></div>
+      <div class="stat-mini"><span class="v" id="statChap">—</span><span class="l">Chapters</span></div>
+    </div>
+    <div class="right-section">
+      <h4>◈ Text Settings</h4>
+      <span class="tts-label">Text Opacity</span>
+      <div class="tts-slider-row">
+        <input type="range" class="tts-slider" id="textOpacity" min="20" max="100" step="5" value="100">
+        <span class="tts-slider-val" id="textOpacityVal">100%</span>
+      </div>
+      <span class="tts-label">Text Brightness</span>
+      <div class="tts-slider-row">
+        <input type="range" class="tts-slider" id="textBrightness" min="50" max="150" step="5" value="100">
+        <span class="tts-slider-val" id="textBrightnessVal">100%</span>
+      </div>
+    </div>
+    <div class="right-section">
+      <h4>◈ Sticker Settings</h4>
+      <span class="tts-label">Select Companion Stickers</span>
+      <div class="sticker-selector" id="stickerSelector"></div>
+      <span class="tts-label" style="margin-top:10px">Add Custom Sticker</span>
+      <div class="bg-upload-row">
+        <button class="bg-upload-btn" onclick="document.getElementById('customStickerInput').click()">📁 ADD</button>
+        <button class="bg-clear-btn" onclick="clearCustomStickers()">✕ CLEAR</button>
+      </div>
+      <input type="file" id="customStickerInput" accept="image/*" style="display:none" onchange="addCustomSticker(event)" multiple>
+      <div id="customStickersList" class="custom-stickers-list"></div>
+    </div>
+    <div class="right-section">
+      <h4>◈ Background</h4>
+      <span class="tts-label">Upload Image</span>
+      <div class="bg-upload-row">
+        <button class="bg-upload-btn" onclick="document.getElementById('bgFileInput').click()">📁 CHOOSE</button>
+        <button class="bg-clear-btn" onclick="clearBg()">✕ CLEAR</button>
+      </div>
+      <input type="file" id="bgFileInput" accept="image/*" style="display:none" onchange="loadBg(event)">
+      <span class="tts-label" style="margin-top:8px">Opacity</span>
+      <div class="tts-slider-row">
+        <input type="range" class="tts-slider" id="bgOpacity" min="0" max="100" step="5" value="30">
+        <span class="tts-slider-val" id="bgOpacityVal">30%</span>
+      </div>
+      <span class="tts-label">Presets</span>
+      <div class="bg-presets">
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/6664361d94be6307727512b56acbd4bf.jpg')"><img src="hi/6664361d94be6307727512b56acbd4bf.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/764553d23db5697a0340d78981955fe7.jpg')"><img src="hi/764553d23db5697a0340d78981955fe7.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/9089d33db5a722204f6b450694d10b36.jpg')"><img src="hi/9089d33db5a722204f6b450694d10b36.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/99921a006dd86658c16dc8b63873f6f3.gif')"><img src="hi/99921a006dd86658c16dc8b63873f6f3.gif"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/a5907e2cfc1d4638aed99fcbb6639106.jpg')"><img src="hi/a5907e2cfc1d4638aed99fcbb6639106.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/b39d004739a48bcc60f771089bb7ecd3.gif')"><img src="hi/b39d004739a48bcc60f771089bb7ecd3.gif"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/bec1174a050a92e8735410d1346b3a61.gif')"><img src="hi/bec1174a050a92e8735410d1346b3a61.gif"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/c2cd0d432788f0f7e298d9aab60ddf8f.jpg')"><img src="hi/c2cd0d432788f0f7e298d9aab60ddf8f.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/c93b61d4d5c5504e32441446da4a4778.jpg')"><img src="hi/c93b61d4d5c5504e32441446da4a4778.jpg"></button>
+        <button class="bg-preset-btn" onclick="setBgPreset('hi/f5cc882eaa11aff3d06e02ebd6dbe4aa.gif')"><img src="hi/f5cc882eaa11aff3d06e02ebd6dbe4aa.gif"></button>
+      </div>
+      <span class="tts-label" style="margin-top:8px">Colors</span>
+      <div class="bg-colors">
+        <button class="bg-color-btn" style="background:#1a1a2e" onclick="setBgColor('#1a1a2e')"></button>
+        <button class="bg-color-btn" style="background:#16213e" onclick="setBgColor('#16213e')"></button>
+        <button class="bg-color-btn" style="background:#0f3460" onclick="setBgColor('#0f3460')"></button>
+        <button class="bg-color-btn" style="background:#533483" onclick="setBgColor('#533483')"></button>
+        <button class="bg-color-btn" style="background:#2c003e" onclick="setBgColor('#2c003e')"></button>
+        <button class="bg-color-btn" style="background:#1b1b2f" onclick="setBgColor('#1b1b2f')"></button>
+        <button class="bg-color-btn" style="background:#e8d5b7" onclick="setBgColor('#e8d5b7')"></button>
+        <button class="bg-color-btn" style="background:#f5f0e8" onclick="setBgColor('#f5f0e8')"></button>
+      </div>
+    </div>
+    <div class="right-section">
+      <h4>◈ Bookmarks</h4>
+      <div id="bookmarkList" style="font-size:0.65rem;color:var(--text-dim);letter-spacing:1px">No bookmarks yet.</div>
+      <button class="add-bookmark-btn" onclick="addBookmark()">+ ADD BOOKMARK</button>
+    </div>
+    <div class="right-section">
+      <h4>◈ Search</h4>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search text...">
+      <div id="searchResults" style="margin-top:8px;max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div class="nav-btns">
+      <button class="nav-btn" onclick="prevChapter()">◀ PREV</button>
+      <button class="nav-btn" onclick="nextChapter()">NEXT ▶</button>
+    </div>
+
+    <!-- TTS PANEL -->
+    <div class="tts-panel">
+      <h4>◈ Text-to-Speech</h4>
+
+      <span class="tts-label">Voice (Microsoft preferred)</span>
+      <select class="tts-select" id="ttsVoiceSelect"></select>
+
+      <span class="tts-label">Speed</span>
+      <div class="tts-slider-row">
+        <input type="range" class="tts-slider" id="ttsRate" min="0.5" max="2.5" step="0.1" value="1.0">
+        <span class="tts-slider-val" id="ttsRateVal">1.0×</span>
+      </div>
+
+      <span class="tts-label">Pitch</span>
+      <div class="tts-slider-row">
+        <input type="range" class="tts-slider" id="ttsPitch" min="0.5" max="2" step="0.1" value="1.0">
+        <span class="tts-slider-val" id="ttsPitchVal">1.0</span>
+      </div>
+
+      <span class="tts-label">Start from chapter</span>
+      <div class="tts-chapter-row">
+        <input type="number" class="tts-chapter-input" id="ttsChapterInput" min="1" value="1" placeholder="Ch#">
+        <button class="tts-go-btn" onclick="ttsGoToChapter()">GO</button>
+      </div>
+
+      <div class="tts-controls">
+        <button class="tts-btn" id="ttsPlayBtn" onclick="ttsPlay()">▶ PLAY</button>
+        <button class="tts-btn" id="ttsPauseBtn" onclick="ttsPause()">⏸ PAUSE</button>
+        <button class="tts-btn stop-btn" onclick="ttsStop()">■ STOP</button>
+      </div>
+
+      <div class="tts-status" id="ttsStatus">READY</div>
+    </div>
+
+  </aside>
+</div>
+<script src="readers.js"></script>
+</body>
+</html>
